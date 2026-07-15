@@ -1,0 +1,20 @@
+root = true
+
+[*]
+indent_style = space
+end_of_line = crlf
+charset = utf-8-bom
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.cs]
+indent_size = 4
+
+# MSTest analyzer diagnostics (MSTEST00xx) - escalated to errors via TreatWarningsAsErrors
+dotnet_analyzer_diagnostic.category-MSTest.severity = warning
+
+# NSubstitute analyzer diagnostics (NS00xx) - escalated to errors via TreatWarningsAsErrors
+dotnet_analyzer_diagnostic.category-NSubstitute.severity = warning
+
+[*.{json,yml,yaml,props,targets,csproj,runsettings}]
+indent_size = 2
