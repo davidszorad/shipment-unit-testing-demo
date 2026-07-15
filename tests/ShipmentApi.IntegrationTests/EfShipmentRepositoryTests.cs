@@ -6,31 +6,72 @@ namespace ShipmentApi.IntegrationTests;
 [TestClass]
 public sealed class EfShipmentRepositoryTests
 {
-    private readonly SqliteConnection _connection;
-    private readonly ShipmentDbContext _dbContext;
-    private readonly EfShipmentRepository _sut;
+    private SqliteConnection _connection = null!;
+    private ShipmentDbContext _dbContext = null!;
+    private EfShipmentRepository _sut = null!;
 
-    public EfShipmentRepositoryTests()
+    // DEMO: TestInitialize/TestCleanup - MSTest's equivalent of Jest's beforeEach/afterEach.
+    // A constructor would give the same per-test isolation (MSTest creates a new instance
+    // of this class for every [TestMethod]), but opening a SQLite connection and creating
+    // the schema are naturally asynchronous operations, and a constructor cannot be async.
+    // TestInitialize can - this is the "async setup" case the constructor pattern can't cover.
+    [TestInitialize]
+    public async Task SetUpAsync()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
+        await _connection.OpenAsync();
 
         var options = new DbContextOptionsBuilder<ShipmentDbContext>()
             .UseSqlite(_connection)
             .Options;
 
         _dbContext = new ShipmentDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        await _dbContext.Database.EnsureCreatedAsync();
 
         _sut = new EfShipmentRepository(_dbContext);
     }
 
     [TestCleanup]
-    public void Cleanup()
+    public async Task TearDownAsync()
     {
-        _dbContext.Dispose();
-        _connection.Dispose();
+        await _dbContext.DisposeAsync();
+        await _connection.DisposeAsync();
     }
+
+    // DEMO: alternative - constructor + IAsyncDisposable instead of TestInitialize/TestCleanup.
+    // This is the pattern to prefer when setup does NOT need to be asynchronous: MSTest still
+    // creates a fresh instance per [TestMethod], so the constructor already gives per-test
+    // isolation, with one line of ceremony instead of two attributed methods. To demo this
+    // live: delete the SetUpAsync/TearDownAsync methods and the three fields' `= null!`
+    // initializers above, add `: IAsyncDisposable` to the class declaration, then paste this in.
+    //
+    // public sealed class EfShipmentRepositoryTests : IAsyncDisposable
+    // {
+    //     private readonly SqliteConnection _connection;
+    //     private readonly ShipmentDbContext _dbContext;
+    //     private readonly EfShipmentRepository _sut;
+    //
+    //     public EfShipmentRepositoryTests()
+    //     {
+    //         _connection = new SqliteConnection("DataSource=:memory:");
+    //         _connection.Open();
+    //
+    //         var options = new DbContextOptionsBuilder<ShipmentDbContext>()
+    //             .UseSqlite(_connection)
+    //             .Options;
+    //
+    //         _dbContext = new ShipmentDbContext(options);
+    //         _dbContext.Database.EnsureCreated();
+    //
+    //         _sut = new EfShipmentRepository(_dbContext);
+    //     }
+    //
+    //     public async ValueTask DisposeAsync()
+    //     {
+    //         await _dbContext.DisposeAsync();
+    //         await _connection.DisposeAsync();
+    //     }
+    // }
 
     [TestMethod]
     public async Task AddAsync_NewShipment_CanBeFoundByFindExistingAsync()

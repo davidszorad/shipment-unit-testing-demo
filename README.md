@@ -87,3 +87,77 @@ tests/ShipmentApi.IntegrationTests/ MSTest v4 tests against real SQLite + WebApp
 docs/DEMO-ANCHORS.md                D1-D7 talk script: file, lines, talking point
 docs/REFACTOR.md                    Copy-pasteable live refactor for the D7 demo beat
 ```
+
+## MYTest Lifecycle
+
+═══════════════════════════════════════════════════════════════════════
+        MSTest Lifecycle — Local DB Integration Test Example
+═══════════════════════════════════════════════════════════════════════
+
+TEST ASSEMBLY LOADS
+│
+├──▶ [AssemblyInitialize]                              (static, ×1)
+│      • Start/connect to the local instance (e.g. LocalDB, or a
+│        Testcontainers SQL Server container).
+│      • CREATE DATABASE IntegrationTestDb
+│      • Run schema migrations — dbContext.Database.Migrate()
+│        or execute your CREATE TABLE scripts.
+│      • Seed baseline/reference data (lookup tables, fixed rows
+│        every test can assume exist).
+│      • Store the connection string in a static field for classes
+│        below to use.
+│      ⚠ Do the expensive stuff here — schema + baseline seed —
+│        exactly once, not once per class.
+│
+│   ┌───────────────────────────────────────────────────────────────┐
+│   │  REPEAT FOR EACH [TestClass]:                                 │
+│   │                                                                │
+│   │  ├──▶ [ClassInitialize]                     (static, ×1/class)│
+│   │  │      Optional here. Use only if this class needs extra,    │
+│   │  │      class-specific seed data on top of the baseline.       │
+│   │  │      Skip it if the assembly-level seed already covers      │
+│   │  │      everything this class's tests need.                    │
+│   │  │                                                              │
+│   │  │   ┌────────────────────────────────────────────────────┐   │
+│   │  │   │  REPEAT FOR EACH [TestMethod]:                      │   │
+│   │  │   │                                                      │   │
+│   │  │   │  1. Constructor / [TestInitialize]  (instance, ×1)   │   │
+│   │  │   │     • Open a SqlConnection to IntegrationTestDb       │   │
+│   │  │   │     • connection.BeginTransaction()                   │   │
+│   │  │   │     • Build the DbContext used by the SUT with        │   │
+│   │  │   │       THIS SAME connection, then:                      │   │
+│   │  │   │       context.Database.UseTransaction(transaction)     │   │
+│   │  │   │       ← this line is the one people skip, and it's     │   │
+│   │  │   │         the whole reason rollback works at all.         │   │
+│   │  │   │                                                      │   │
+│   │  │   │  2. ── [TestMethod] runs, writes through that DbContext │
+│   │  │   │        (or a repository/service built on top of it) ── │   │
+│   │  │   │                                                      │   │
+│   │  │   │  3. [TestCleanup]                   (instance, ×1)    │   │
+│   │  │   │     • transaction.Rollback()                          │   │
+│   │  │   │     • connection.Dispose()                             │   │
+│   │  │   │     Runs even if step 1/2 threw — this is exactly the  │   │
+│   │  │   │     MSTest guarantee from earlier: TestCleanup always   │   │
+│   │  │   │     fires, so a half-finished test still rolls back.    │   │
+│   │  │   └────────────────────────────────────────────────────┘   │
+│   │  │                                                              │
+│   │  └──▶ [ClassCleanup]                        (static, ×1/class) │
+│   │         Usually empty in this pattern — the per-test rollback   │
+│   │         already leaves the DB exactly as the baseline seed      │
+│   │         left it. Only needed if ClassInitialize added its own   │
+│   │         class-specific data that needs explicit removal.        │
+│   │                                                                │
+│   └───────────────────────────────────────────────────────────────┘
+│
+└──▶ [AssemblyCleanup]                                 (static, ×1)
+       • Force-close any lingering connections:
+         ALTER DATABASE IntegrationTestDb SET SINGLE_USER
+           WITH ROLLBACK IMMEDIATE
+       • DROP DATABASE IntegrationTestDb
+       ⚠ SQL Server refuses to drop a DB with open connections —
+         the SINGLE_USER step above isn't optional if anything
+         still has a handle on it (a leaked connection from a
+         test that forgot to dispose, for instance).
+
+TEST ASSEMBLY UNLOADS
+═══════════════════════════════════════════════════════════════════════
