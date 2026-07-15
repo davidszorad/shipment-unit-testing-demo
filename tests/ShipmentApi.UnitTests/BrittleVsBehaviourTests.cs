@@ -22,7 +22,7 @@ public sealed class BrittleVsBehaviourTests
         _shipments.FindExistingAsync(42, "AMBIENT-1", Arg.Any<DateOnly>()).Returns((Shipment?)null);
     }
 
-    // DEMO D7: BRITTLE - asserts HOW, not WHAT.
+    // DEMO 6: BRITTLE - asserts HOW, not WHAT.
     [TestMethod]
     public async Task BookAsync_ValidRequest_BrittleImplementationCoupledTest()
     {
@@ -45,7 +45,7 @@ public sealed class BrittleVsBehaviourTests
         Assert.HasCount(1, _logger.Collector.GetSnapshot());
     }
 
-    // DEMO D7: GOOD - asserts WHAT the outside world observes.
+    // DEMO 6: GOOD - asserts WHAT the outside world observes.
     [TestMethod]
     public async Task BookAsync_ValidRequest_BehaviourTest()
     {

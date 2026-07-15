@@ -116,7 +116,7 @@ public sealed class EfShipmentRepositoryTests
     }
 }
 
-// DEMO D6b: a tempting but wrong alternative.
+// DEMO 5: a tempting but wrong alternative.
 //
 // var fakeContext = Substitute.For<ShipmentDbContext>();
 // var fakeShipments = Substitute.For<DbSet<Shipment>, IQueryable<Shipment>, IAsyncEnumerable<Shipment>>();
